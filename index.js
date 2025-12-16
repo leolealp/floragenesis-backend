@@ -19,7 +19,6 @@ app.use(express.json());
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "SEM_CHAVE");
 
-// Função Auxiliar
 function fileToGenerativePart(buffer, mimeType) {
   return {
     inlineData: {
@@ -33,7 +32,7 @@ function fileToGenerativePart(buffer, mimeType) {
 // ROTAS
 // ==================================================================
 
-app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V 1.0.7)' }));
+app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V 1.5 PRO)' }));
 
 app.get('/test-db', async (req, res) => {
   const { data, error } = await supabase.from('badge_definitions').select('*');
@@ -45,51 +44,29 @@ app.get('/test-db', async (req, res) => {
 app.post('/plants/analyze', upload.single('image'), async (req, res) => {
   try {
     const file = req.file;
-    const locationContext = req.body.context || 'O usuário não informou se é vaso ou solo.';
+    const locationContext = req.body.context || 'Contexto não informado.';
 
-    if (!file) {
-      return res.status(400).json({ error: 'Nenhuma imagem enviada.' });
-    }
+    if (!file) return res.status(400).json({ error: 'Nenhuma imagem enviada.' });
 
-    console.log(`🌱 Analisando imagem... Contexto: ${locationContext}`);
+    console.log(`🌱 Analisando com Gemini 1.5 PRO... Contexto: ${locationContext}`);
 
-    // --- A VOLTA DO MODELO PADRÃO ---
-    // Com a biblioteca atualizada (0.21.0), este é o nome correto.
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // --- MUDANÇA: USANDO O MODELO PRO (MAIS ROBUSTO) ---
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
 
     const imagePart = fileToGenerativePart(file.buffer, file.mimetype);
 
     const prompt = `
-      Você é o FloraGenesis, um botânico especialista e fitopatologista.
-      Analise esta imagem cuidadosamente.
+      Você é o FloraGenesis. Analise esta imagem.
+      CONTEXTO: ${locationContext}.
       
-      CONTEXTO DO USUÁRIO: ${locationContext}.
-      (Use este contexto para avaliar se o espaço/recipiente é adequado).
-
-      Sua tarefa:
-      1. Identificar a planta (Nome popular e científico).
-      2. Diagnosticar a saúde (Saudável, Doente, Crítico).
-      3. Se houver problema, identificar a causa (Praga, Fungo, Manejo, Vaso Pequeno, etc).
-      4. Criar um protocolo de tratamento resumido.
-
-      Retorne APENAS um JSON válido, sem marcação markdown (sem \`\`\`json), estritamente neste formato:
+      Tarefa: Identificar a planta, diagnosticar a saúde e sugerir tratamento.
+      
+      Retorne APENAS JSON válido, sem markdown:
       {
-        "plant_identity": {
-          "scientific_name": "String",
-          "common_name": "String",
-          "confidence": 0.0-1.0
-        },
-        "diagnosis": {
-          "health_status": "Healthy" ou "Sick" ou "Critical",
-          "primary_issue": "String curta (Ex: Cochonilhas, Vaso Pequeno)",
-          "description": "Explicação de 1 ou 2 frases sobre o diagnóstico visual e o contexto."
-        },
-        "treatment_protocol": {
-          "required": Boolean,
-          "title": "Título do Tratamento",
-          "duration_days": Integer
-        },
-        "context_analysis": "Seu comentário específico sobre o contexto (Vaso/Solo) informado."
+        "plant_identity": { "scientific_name": "String", "common_name": "String" },
+        "diagnosis": { "health_status": "String", "primary_issue": "String", "description": "String" },
+        "treatment_protocol": { "required": Boolean, "title": "String", "duration_days": Integer },
+        "context_analysis": "Comentário sobre o contexto (Vaso/Solo)."
       }
     `;
 
@@ -97,7 +74,7 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
     const response = await result.response;
     const text = response.text();
 
-    console.log("🤖 Resposta Bruta Gemini:", text);
+    console.log("🤖 Resposta:", text);
 
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     const jsonResult = JSON.parse(cleanText);
@@ -105,13 +82,11 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
     res.json(jsonResult);
 
   } catch (error) {
-    console.error("Erro CRÍTICO na Análise:", error);
-    
-    // Tratamento de erro detalhado para debug
+    console.error("Erro CRÍTICO:", error);
     res.status(500).json({ 
-      error: 'Erro ao processar inteligência artificial.',
+      error: 'Erro na IA', 
       details: error.message,
-      tip: "Verifique se a chave API tem acesso ao modelo 'gemini-1.5-flash' no Google AI Studio."
+      model_tried: "gemini-1.5-pro"
     });
   }
 });
@@ -149,15 +124,13 @@ app.post('/plants/save', upload.single('image'), async (req, res) => {
       .select();
 
     if (dbError) throw dbError;
-
     res.status(201).json({ message: 'Planta salva!', plant: data[0] });
 
   } catch (error) {
-    console.error("Erro ao salvar:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 app.listen(port, () => {
-  console.log(`Servidor FloraGenesis rodando na porta ${port}`);
+  console.log(`Servidor rodando na porta ${port}`);
 });
