@@ -32,7 +32,7 @@ function fileToGenerativePart(buffer, mimeType) {
 // ROTAS
 // ==================================================================
 
-app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V 1.5 PRO)' }));
+app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V CLASSIC)' }));
 
 app.get('/test-db', async (req, res) => {
   const { data, error } = await supabase.from('badge_definitions').select('*');
@@ -48,25 +48,24 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
 
     if (!file) return res.status(400).json({ error: 'Nenhuma imagem enviada.' });
 
-    console.log(`🌱 Analisando com Gemini 1.5 PRO... Contexto: ${locationContext}`);
+    console.log(`🌱 Analisando com Gemini PRO VISION... Contexto: ${locationContext}`);
 
-    // --- MUDANÇA: USANDO O MODELO PRO (MAIS ROBUSTO) ---
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+    // --- MUDANÇA: USANDO O MODELO CLÁSSICO DE VISÃO ---
+    // Este modelo é o mais compatível para chaves antigas/restritas
+    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
 
     const imagePart = fileToGenerativePart(file.buffer, file.mimetype);
 
     const prompt = `
-      Você é o FloraGenesis. Analise esta imagem.
-      CONTEXTO: ${locationContext}.
+      Atue como o FloraGenesis, botânico.
+      Analise a imagem. Contexto do usuário: ${locationContext}.
       
-      Tarefa: Identificar a planta, diagnosticar a saúde e sugerir tratamento.
-      
-      Retorne APENAS JSON válido, sem markdown:
+      Retorne APENAS um JSON estrito, sem markdown:
       {
         "plant_identity": { "scientific_name": "String", "common_name": "String" },
         "diagnosis": { "health_status": "String", "primary_issue": "String", "description": "String" },
         "treatment_protocol": { "required": Boolean, "title": "String", "duration_days": Integer },
-        "context_analysis": "Comentário sobre o contexto (Vaso/Solo)."
+        "context_analysis": "Comentário sobre o contexto."
       }
     `;
 
@@ -86,7 +85,7 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
     res.status(500).json({ 
       error: 'Erro na IA', 
       details: error.message,
-      model_tried: "gemini-1.5-pro"
+      model_tried: "gemini-pro-vision"
     });
   }
 });
