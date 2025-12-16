@@ -1,10 +1,10 @@
-// index.js (Revisão para sintaxe de Node.js CLÁSSICA)
+// index.js (Sharp removido para garantir a inicialização)
 
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
-const sharp = require('sharp');
-require('dotenv').config(); // Usando require para dotenv
+// const sharp = require('sharp'); <-- REMOVIDO
+require('dotenv').config();
 
 // ----------------------------------------------------
 // 1. CONFIGURAÇÃO SUPABASE
@@ -29,11 +29,11 @@ app.use((req, res, next) => {
 });
 
 // ----------------------------------------------------
-// 3. ROTAS BASE (Status, Teste)
+// 3. ROTAS BASE (Status)
 // ----------------------------------------------------
 
 app.get('/', (req, res) => {
-    res.send('FloraGenesis Backend está ONLINE e pronto para identificar plantas! 🌸');
+    res.send('FloraGenesis Backend está ONLINE! 🌸 (V. Sharp Removido)');
 });
 
 
@@ -158,14 +158,14 @@ app.post('/plants/save', upload.single('image'), async (req, res) => {
 
         // 1. Lógica do Master DB (Mock - Assume que foi inserido)
         if (!currentMasterId) {
-            currentMasterId = 'mock_new_master_id';
+            // MOCK: Se for planta nova, simula a inserção no Master
+            currentMasterId = 'mock_new_master_id'; 
         }
 
-        // 2. Upload da Imagem (Mock - Assume que funcionou)
+        // 2. Upload da Imagem (Mock - Assumimos que a URL foi gerada)
         let imageUrl = `mock_url_for_plant_${currentMasterId}.jpg`;
         if (file) {
-             // Esta parte exigiria a instalação da biblioteca sharp, que é pesada. 
-             // Deixaremos o mock por enquanto, assumindo que a URL foi gerada.
+             // NOVO CÓDIGO AQUI: O upload real seria feito, mas mantemos o mock por enquanto.
             console.log(`[SAVE] ${transactionId}: Imagem mockada para URL: ${imageUrl}`);
         }
 
@@ -173,7 +173,7 @@ app.post('/plants/save', upload.single('image'), async (req, res) => {
         console.log(`[SAVE] ${transactionId}: Inserindo registro no jardim ${gardenId}...`);
         
         const { error: userGardenError } = await supabase
-            .from('user_gardens') // Alterado de user_plants_garden para user_gardens (como no SQL)
+            .from('user_gardens') 
             .insert([{
                 user_id: 'user_teste_v1',
                 garden_id: gardenId, 
