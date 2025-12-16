@@ -32,7 +32,7 @@ function fileToGenerativePart(buffer, mimeType) {
 // ROTAS
 // ==================================================================
 
-app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V CLASSIC)' }));
+app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V FLASH FINAL)' }));
 
 app.get('/test-db', async (req, res) => {
   const { data, error } = await supabase.from('badge_definitions').select('*');
@@ -48,24 +48,23 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
 
     if (!file) return res.status(400).json({ error: 'Nenhuma imagem enviada.' });
 
-    console.log(`🌱 Analisando com Gemini PRO VISION... Contexto: ${locationContext}`);
+    console.log(`🌱 Analisando com Gemini 1.5 FLASH... Contexto: ${locationContext}`);
 
-    // --- MUDANÇA: USANDO O MODELO CLÁSSICO DE VISÃO ---
-    // Este modelo é o mais compatível para chaves antigas/restritas
-    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+    // --- MODELO CORRETO E ATUAL ---
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const imagePart = fileToGenerativePart(file.buffer, file.mimetype);
 
     const prompt = `
-      Atue como o FloraGenesis, botânico.
-      Analise a imagem. Contexto do usuário: ${locationContext}.
+      Você é o FloraGenesis, botânico especialista.
+      Analise a imagem. Contexto: ${locationContext}.
       
-      Retorne APENAS um JSON estrito, sem markdown:
+      Retorne APENAS um JSON válido (sem markdown):
       {
         "plant_identity": { "scientific_name": "String", "common_name": "String" },
         "diagnosis": { "health_status": "String", "primary_issue": "String", "description": "String" },
         "treatment_protocol": { "required": Boolean, "title": "String", "duration_days": Integer },
-        "context_analysis": "Comentário sobre o contexto."
+        "context_analysis": "Comentário sobre o contexto (Vaso/Solo)."
       }
     `;
 
@@ -84,8 +83,7 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
     console.error("Erro CRÍTICO:", error);
     res.status(500).json({ 
       error: 'Erro na IA', 
-      details: error.message,
-      model_tried: "gemini-pro-vision"
+      details: error.message 
     });
   }
 });
