@@ -17,7 +17,7 @@ app.use(express.json());
 
 // --- CONEXÕES ---
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "SEM_CHAVE");
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 function fileToGenerativePart(buffer, mimeType) {
   return {
@@ -32,7 +32,7 @@ function fileToGenerativePart(buffer, mimeType) {
 // ROTAS
 // ==================================================================
 
-app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V FLASH FINAL)' }));
+app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V FLASH-001 NEW KEY)' }));
 
 app.get('/test-db', async (req, res) => {
   const { data, error } = await supabase.from('badge_definitions').select('*');
@@ -48,16 +48,16 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
 
     if (!file) return res.status(400).json({ error: 'Nenhuma imagem enviada.' });
 
-    console.log(`🌱 Analisando com Gemini 1.5 FLASH... Contexto: ${locationContext}`);
+    console.log(`🌱 Analisando com Gemini 1.5 FLASH-001... Contexto: ${locationContext}`);
 
-    // --- MODELO CORRETO E ATUAL ---
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // --- MUDANÇA: USANDO A VERSÃO ESPECÍFICA '001' COM A CHAVE NOVA ---
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
 
     const imagePart = fileToGenerativePart(file.buffer, file.mimetype);
 
     const prompt = `
-      Você é o FloraGenesis, botânico especialista.
-      Analise a imagem. Contexto: ${locationContext}.
+      Você é o FloraGenesis, botânico.
+      Analise a imagem. Contexto do usuário: ${locationContext}.
       
       Retorne APENAS um JSON válido (sem markdown):
       {
@@ -83,7 +83,8 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
     console.error("Erro CRÍTICO:", error);
     res.status(500).json({ 
       error: 'Erro na IA', 
-      details: error.message 
+      details: error.message,
+      tip: "Verifique se a API Key no Render está atualizada."
     });
   }
 });
