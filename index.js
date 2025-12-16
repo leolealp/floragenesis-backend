@@ -17,7 +17,15 @@ app.use(express.json());
 
 // --- CONEXÕES ---
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+// TRATAMENTO DA CHAVE (O SEGREDO 🤫)
+// Pega a chave do ambiente e remove espaços em branco antes ou depois
+const rawApiKey = process.env.GEMINI_API_KEY || "";
+const cleanApiKey = rawApiKey.trim(); 
+
+console.log(`🔑 Status da Chave API: ${cleanApiKey ? "Carregada (Final: " + cleanApiKey.slice(-4) + ")" : "AUSENTE"}`);
+
+const genAI = new GoogleGenerativeAI(cleanApiKey);
 
 function fileToGenerativePart(buffer, mimeType) {
   return {
@@ -32,7 +40,7 @@ function fileToGenerativePart(buffer, mimeType) {
 // ROTAS
 // ==================================================================
 
-app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V FLASH-001 NEW KEY)' }));
+app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V TRIMMED KEY)' }));
 
 app.get('/test-db', async (req, res) => {
   const { data, error } = await supabase.from('badge_definitions').select('*');
@@ -48,10 +56,10 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
 
     if (!file) return res.status(400).json({ error: 'Nenhuma imagem enviada.' });
 
-    console.log(`🌱 Analisando com Gemini 1.5 FLASH-001... Contexto: ${locationContext}`);
+    console.log(`🌱 Analisando com Gemini 1.5 FLASH... Contexto: ${locationContext}`);
 
-    // --- MUDANÇA: USANDO A VERSÃO ESPECÍFICA '001' COM A CHAVE NOVA ---
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
+    // Modelo correto
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const imagePart = fileToGenerativePart(file.buffer, file.mimetype);
 
@@ -84,7 +92,7 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
     res.status(500).json({ 
       error: 'Erro na IA', 
       details: error.message,
-      tip: "Verifique se a API Key no Render está atualizada."
+      tip: "Verifique os logs do Render para ver se a chave carregou corretamente."
     });
   }
 });
