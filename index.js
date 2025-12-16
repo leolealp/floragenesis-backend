@@ -38,7 +38,7 @@ function fileToGenerativePart(buffer, mimeType) {
 // ==================================================================
 
 // 1. Health Check (Para ver se o server está vivo)
-app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V 1.0.3)' }));
+app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V 1.0.4)' }));
 
 // 2. Teste de Banco de Dados (Lista medalhas)
 app.get('/test-db', async (req, res) => {
@@ -61,6 +61,7 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
     console.log(`🌱 Analisando imagem... Contexto: ${locationContext}`);
 
     // --- PREPARAÇÃO PARA IA ---
+    // Usando modelo Gemini 1.5 Flash que é mais rápido e eficiente
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const imagePart = fileToGenerativePart(file.buffer, file.mimetype);
