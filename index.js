@@ -20,7 +20,6 @@ app.use(express.json());
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
 // Conexão com Google Gemini
-// Se a chave não existir, ele avisa no log mas não derruba o server imediatamente
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "SEM_CHAVE");
 
 // Função Auxiliar: Prepara arquivo para o Gemini
@@ -37,10 +36,10 @@ function fileToGenerativePart(buffer, mimeType) {
 // ROTAS
 // ==================================================================
 
-// 1. Health Check (Para ver se o server está vivo)
-app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V 1.0.4)' }));
+// 1. Health Check
+app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V 1.0.5)' }));
 
-// 2. Teste de Banco de Dados (Lista medalhas)
+// 2. Teste de Banco de Dados
 app.get('/test-db', async (req, res) => {
   const { data, error } = await supabase.from('badge_definitions').select('*');
   if (error) return res.status(500).json({ error: error.message });
@@ -60,9 +59,9 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
 
     console.log(`🌱 Analisando imagem... Contexto: ${locationContext}`);
 
-    // --- PREPARAÇÃO PARA IA ---
-    // Usando modelo Gemini 1.5 Flash que é mais rápido e eficiente
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // --- MUDANÇA IMPORTANTE AQUI ---
+    // Usando a versão ESPECÍFICA '001' para evitar o erro 404
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
 
     const imagePart = fileToGenerativePart(file.buffer, file.mimetype);
 
@@ -88,88 +87,3 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
         },
         "diagnosis": {
           "health_status": "Healthy" ou "Sick" ou "Critical",
-          "primary_issue": "String curta (Ex: Cochonilhas, Vaso Pequeno)",
-          "description": "Explicação de 1 ou 2 frases sobre o diagnóstico visual e o contexto."
-        },
-        "treatment_protocol": {
-          "required": Boolean,
-          "title": "Título do Tratamento",
-          "duration_days": Integer
-        },
-        "context_analysis": "Seu comentário específico sobre o contexto (Vaso/Solo) informado."
-      }
-    `;
-
-    // --- CHAMADA IA ---
-    const result = await model.generateContent([prompt, imagePart]);
-    const response = await result.response;
-    const text = response.text();
-
-    console.log("🤖 Resposta Bruta Gemini:", text);
-
-    // --- LIMPEZA E RESPOSTA ---
-    // Remove caracteres markdown caso a IA coloque
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    
-    const jsonResult = JSON.parse(cleanText);
-
-    res.json(jsonResult);
-
-  } catch (error) {
-    console.error("Erro CRÍTICO na Análise:", error);
-    res.status(500).json({ 
-      error: 'Erro ao processar inteligência artificial.',
-      details: error.message 
-    });
-  }
-});
-
-// 4. MODO JARDINEIRO: Salvar Planta no Banco (Futuro)
-app.post('/plants/save', upload.single('image'), async (req, res) => {
-  try {
-    // Mock de User ID (Em produção usaremos autenticação real)
-    const userId = 'user_teste_v1'; 
-    const aiData = JSON.parse(req.body.ai_diagnosis || '{}');
-    const gardenId = req.body.gardenId;
-
-    const file = req.file;
-    if (!file) return res.status(400).json({ error: 'Sem foto.' });
-
-    // 1. Upload Foto Supabase
-    const photoName = `${userId}/${Date.now()}_planta.jpg`;
-    const { error: uploadError } = await supabase.storage
-      .from('plant-photos')
-      .upload(photoName, file.buffer, { contentType: file.mimetype, upsert: true });
-
-    if (uploadError) throw uploadError;
-
-    const publicUrl = supabase.storage.from('plant-photos').getPublicUrl(photoName).data.publicUrl;
-
-    // 2. Salvar no Banco
-    const { data, error: dbError } = await supabase
-      .from('plants')
-      .insert([{
-        garden_id: gardenId, // Precisa existir um garden com esse ID
-        user_id: userId,
-        nickname: aiData.plant_identity?.common_name || 'Minha Planta',
-        scientific_name: aiData.plant_identity?.scientific_name,
-        health_status: aiData.diagnosis?.health_status,
-        image_url: publicUrl,
-        botanical_specs: aiData
-      }])
-      .select();
-
-    if (dbError) throw dbError;
-
-    res.status(201).json({ message: 'Planta salva!', plant: data[0] });
-
-  } catch (error) {
-    console.error("Erro ao salvar:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Iniciar Servidor
-app.listen(port, () => {
-  console.log(`Servidor FloraGenesis rodando na porta ${port}`);
-});
