@@ -16,13 +16,10 @@ app.use(cors());
 app.use(express.json());
 
 // --- CONEXÕES ---
-// Conexão com Supabase
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-
-// Conexão com Google Gemini
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "SEM_CHAVE");
 
-// Função Auxiliar: Prepara arquivo para o Gemini
+// Função Auxiliar
 function fileToGenerativePart(buffer, mimeType) {
   return {
     inlineData: {
@@ -36,21 +33,18 @@ function fileToGenerativePart(buffer, mimeType) {
 // ROTAS
 // ==================================================================
 
-// 1. Health Check
-app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V 1.0.5)' }));
+app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V 1.0.7)' }));
 
-// 2. Teste de Banco de Dados
 app.get('/test-db', async (req, res) => {
   const { data, error } = await supabase.from('badge_definitions').select('*');
   if (error) return res.status(500).json({ error: error.message });
   res.json({ badges: data });
 });
 
-// 3. MODO EXPLORADOR: Identificação e Diagnóstico com IA
+// --- ROTA DE ANÁLISE ---
 app.post('/plants/analyze', upload.single('image'), async (req, res) => {
   try {
     const file = req.file;
-    // Captura o contexto enviado pelo App (Vaso ou Solo)
     const locationContext = req.body.context || 'O usuário não informou se é vaso ou solo.';
 
     if (!file) {
@@ -59,9 +53,9 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
 
     console.log(`🌱 Analisando imagem... Contexto: ${locationContext}`);
 
-    // --- MUDANÇA IMPORTANTE AQUI ---
-    // Usando a versão ESPECÍFICA '001' para evitar o erro 404
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-001" });
+    // --- A VOLTA DO MODELO PADRÃO ---
+    // Com a biblioteca atualizada (0.21.0), este é o nome correto.
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const imagePart = fileToGenerativePart(file.buffer, file.mimetype);
 
@@ -99,14 +93,12 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
       }
     `;
 
-    // --- CHAMADA IA ---
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
     const text = response.text();
 
     console.log("🤖 Resposta Bruta Gemini:", text);
 
-    // --- LIMPEZA E RESPOSTA ---
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     const jsonResult = JSON.parse(cleanText);
 
@@ -114,24 +106,26 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
 
   } catch (error) {
     console.error("Erro CRÍTICO na Análise:", error);
+    
+    // Tratamento de erro detalhado para debug
     res.status(500).json({ 
       error: 'Erro ao processar inteligência artificial.',
-      details: error.message 
+      details: error.message,
+      tip: "Verifique se a chave API tem acesso ao modelo 'gemini-1.5-flash' no Google AI Studio."
     });
   }
 });
 
-// 4. MODO JARDINEIRO: Salvar Planta no Banco
+// --- ROTA DE SALVAR ---
 app.post('/plants/save', upload.single('image'), async (req, res) => {
   try {
     const userId = 'user_teste_v1'; 
     const aiData = JSON.parse(req.body.ai_diagnosis || '{}');
     const gardenId = req.body.gardenId;
-
     const file = req.file;
+
     if (!file) return res.status(400).json({ error: 'Sem foto.' });
 
-    // Upload
     const photoName = `${userId}/${Date.now()}_planta.jpg`;
     const { error: uploadError } = await supabase.storage
       .from('plant-photos')
@@ -141,7 +135,6 @@ app.post('/plants/save', upload.single('image'), async (req, res) => {
 
     const publicUrl = supabase.storage.from('plant-photos').getPublicUrl(photoName).data.publicUrl;
 
-    // Insert
     const { data, error: dbError } = await supabase
       .from('plants')
       .insert([{
