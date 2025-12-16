@@ -1,9 +1,17 @@
+<<<<<<< HEAD
 // index.js (CORS Ativo e Sharp Removido para garantir a inicialização)
+=======
+// index.js (Sharp removido para garantir a inicialização)
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
 
 const express = require('express');
 const { createClient } = require('@supabase/supabase-js');
 const multer = require('multer');
+<<<<<<< HEAD
 const cors = require('cors'); 
+=======
+// const sharp = require('sharp'); <-- REMOVIDO
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
 require('dotenv').config();
 
 // ----------------------------------------------------
@@ -14,16 +22,24 @@ const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 // ----------------------------------------------------
+<<<<<<< HEAD
 // 2. CONFIGURAÇÃO EXPRESS E CORS
+=======
+// 2. CONFIGURAÇÃO EXPRESS E MULTER (Upload de Arquivos)
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
 // ----------------------------------------------------
 const app = express();
 const port = process.env.PORT || 3000;
 
+<<<<<<< HEAD
 // CONFIGURAÇÃO CORS: Permite requisições de qualquer origem (localhost), resolvendo o erro de CORS.
 app.use(cors()); 
 app.use(express.json()); // Para lidar com JSON
 
 // Configuração do Multer (Memory Storage)
+=======
+// Configuração do Multer para lidar com upload de arquivos (a memória é temporária)
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Middleware para registrar logs de requisições
@@ -37,12 +53,20 @@ app.use((req, res, next) => {
 // ----------------------------------------------------
 
 app.get('/', (req, res) => {
+<<<<<<< HEAD
     res.send('FloraGenesis Backend está ONLINE! 🌸 (CORS Ativo)');
+=======
+    res.send('FloraGenesis Backend está ONLINE! 🌸 (V. Sharp Removido)');
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
 });
 
 
 // ----------------------------------------------------
+<<<<<<< HEAD
 // 4. ROTA: BUSCA DE JARDINS DO USUÁRIO (NOVA ROTA)
+=======
+// 4. NOVA ROTA: BUSCA DE JARDINS DO USUÁRIO
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
 // ----------------------------------------------------
 app.get('/user/gardens', async (req, res) => {
     const { user_id } = req.query; 
@@ -75,12 +99,20 @@ app.get('/user/gardens', async (req, res) => {
 
 
 // ----------------------------------------------------
+<<<<<<< HEAD
 // 5. ROTA: ANÁLISE DE PLANTA (MOCK)
+=======
+// 5. ROTA: ANÁLISE DE PLANTA (AI e Lookup) - MOCK
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
 // ----------------------------------------------------
 app.post('/plants/analyze', upload.single('image'), async (req, res) => {
     const transactionId = `ANALYSIS-${Date.now()}`;
     
+<<<<<<< HEAD
     // MOCK (Simulação do retorno da IA)
+=======
+    // MOCK (Para não depender de chave Gemini agora)
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
     const mockGeminiResponse = {
         "plant_identity": {
             "common_name": "Lírio da Paz",
@@ -104,7 +136,11 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
 
 
 // ----------------------------------------------------
+<<<<<<< HEAD
 // 6. ROTA: LOOKUP NO BANCO MASTER (MOCK)
+=======
+// 6. ROTA: LOOKUP NO BANCO MASTER - MOCK
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
 // ----------------------------------------------------
 app.get('/plants/lookup', async (req, res) => {
     const { scientific_name } = req.query;
@@ -114,7 +150,11 @@ app.get('/plants/lookup', async (req, res) => {
         return res.status(400).json({ error: 'Nome científico é obrigatório para lookup.' });
     }
 
+<<<<<<< HEAD
     // MOCK (Simula a busca por uma planta conhecida)
+=======
+    // MOCK (Simula uma planta já conhecida no Master DB)
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
     const knownScientificName = 'Spathiphyllum wallisii'; 
 
     if (scientific_name.toLowerCase() === knownScientificName.toLowerCase()) {
@@ -144,7 +184,11 @@ app.get('/plants/lookup', async (req, res) => {
 
 
 // ----------------------------------------------------
+<<<<<<< HEAD
 // 7. ROTA: SALVAMENTO NO JARDIM DO USUÁRIO
+=======
+// 7. ROTA: SALVAMENTO NO JARDIM DO USUÁRIO - MOCK
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
 // ----------------------------------------------------
 app.post('/plants/save', upload.single('image'), async (req, res) => {
     const transactionId = `SAVE-${Date.now()}`;
@@ -160,6 +204,7 @@ app.post('/plants/save', upload.single('image'), async (req, res) => {
     try {
         let currentMasterId = master_plant_id;
 
+<<<<<<< HEAD
         // 1. Lógica do Master DB (Mock)
         if (!currentMasterId) {
             currentMasterId = 'mock_new_master_id'; 
@@ -168,6 +213,18 @@ app.post('/plants/save', upload.single('image'), async (req, res) => {
         // 2. Upload da Imagem (Mock)
         let imageUrl = `mock_url_for_plant_${currentMasterId}.jpg`;
         if (file) {
+=======
+        // 1. Lógica do Master DB (Mock - Assume que foi inserido)
+        if (!currentMasterId) {
+            // MOCK: Se for planta nova, simula a inserção no Master
+            currentMasterId = 'mock_new_master_id'; 
+        }
+
+        // 2. Upload da Imagem (Mock - Assumimos que a URL foi gerada)
+        let imageUrl = `mock_url_for_plant_${currentMasterId}.jpg`;
+        if (file) {
+             // NOVO CÓDIGO AQUI: O upload real seria feito, mas mantemos o mock por enquanto.
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
             console.log(`[SAVE] ${transactionId}: Imagem mockada para URL: ${imageUrl}`);
         }
 
@@ -178,7 +235,11 @@ app.post('/plants/save', upload.single('image'), async (req, res) => {
             .from('user_gardens') 
             .insert([{
                 user_id: 'user_teste_v1',
+<<<<<<< HEAD
                 garden_id: gardenId, // <-- ID DO JARDIM SELECIONADO
+=======
+                garden_id: gardenId, 
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
                 master_plant_id: currentMasterId,
                 is_in_pot: is_in_pot === 'true', 
                 image_url: imageUrl,
@@ -201,4 +262,8 @@ app.post('/plants/save', upload.single('image'), async (req, res) => {
 // ----------------------------------------------------
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
+<<<<<<< HEAD
 });
+=======
+});
+>>>>>>> 41a36c7d0c2f6e797f7e19e86b9942319f821a26
