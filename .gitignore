@@ -1,0 +1,4 @@
+# Ignora a pasta de módulos (instalada pelo npm, pesada e desnecessária no Git)
+/node_modules
+# Ignora o arquivo de variáveis de ambiente (contém chaves secretas)
+.env
