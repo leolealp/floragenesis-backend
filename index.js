@@ -8,7 +8,6 @@ require('dotenv').config();
 const app = express();
 const port = process.env.PORT || 3000;
 
-// --- CONFIGURAÇÕES ---
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
@@ -18,125 +17,80 @@ app.use(express.json());
 // --- CONEXÕES ---
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// TRATAMENTO DA CHAVE (O SEGREDO 🤫)
-// Pega a chave do ambiente e remove espaços em branco antes ou depois
+// Limpeza da chave
 const rawApiKey = process.env.GEMINI_API_KEY || "";
-const cleanApiKey = rawApiKey.trim(); 
-
-console.log(`🔑 Status da Chave API: ${cleanApiKey ? "Carregada (Final: " + cleanApiKey.slice(-4) + ")" : "AUSENTE"}`);
-
+const cleanApiKey = rawApiKey.trim();
 const genAI = new GoogleGenerativeAI(cleanApiKey);
 
+// --- FUNÇÃO DETETIVE: LISTAR MODELOS ---
+async function listAvailableModels() {
+  console.log("🕵️‍♀️ PERGUNTANDO AO GOOGLE QUAIS MODELOS ESTÃO DISPONÍVEIS...");
+  try {
+    // Usamos fetch direto para não depender da versão do SDK
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanApiKey}`);
+    const data = await response.json();
+    
+    if (data.models) {
+      console.log("✅ LISTA DE MODELOS APROVADOS PARA SUA CHAVE:");
+      data.models.forEach(m => {
+        // Mostra apenas modelos que aceitam geração de conteúdo
+        if (m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent")) {
+           console.log(`   -> ${m.name.replace('models/', '')}`); 
+        }
+      });
+      console.log("------------------------------------------------");
+    } else {
+      console.log("❌ O Google respondeu, mas não listou modelos. Resposta:", data);
+    }
+  } catch (error) {
+    console.log("❌ Erro ao listar modelos:", error.message);
+  }
+}
+
 function fileToGenerativePart(buffer, mimeType) {
-  return {
-    inlineData: {
-      data: buffer.toString("base64"),
-      mimeType
-    },
-  };
+  return { inlineData: { data: buffer.toString("base64"), mimeType } };
 }
 
 // ==================================================================
 // ROTAS
 // ==================================================================
 
-app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V TRIMMED KEY)' }));
+app.get('/', (req, res) => res.json({ status: 'FloraGenesis Detetive Online 🕵️‍♀️' }));
 
-app.get('/test-db', async (req, res) => {
-  const { data, error } = await supabase.from('badge_definitions').select('*');
-  if (error) return res.status(500).json({ error: error.message });
-  res.json({ badges: data });
-});
-
-// --- ROTA DE ANÁLISE ---
 app.post('/plants/analyze', upload.single('image'), async (req, res) => {
   try {
     const file = req.file;
     const locationContext = req.body.context || 'Contexto não informado.';
-
     if (!file) return res.status(400).json({ error: 'Nenhuma imagem enviada.' });
 
-    console.log(`🌱 Analisando com Gemini 1.5 FLASH... Contexto: ${locationContext}`);
+    // --- TENTATIVA SEGURA ---
+    // Enquanto não vemos a lista, vou deixar o 'gemini-1.5-flash' padrão.
+    // O objetivo agora é ver o LOG de inicialização.
+    const modelName = "gemini-1.5-flash"; 
+    
+    console.log(`🌱 Tentando analisar com: ${modelName}`);
 
-    // Modelo correto
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-
+    const model = genAI.getGenerativeModel({ model: modelName });
     const imagePart = fileToGenerativePart(file.buffer, file.mimetype);
 
-    const prompt = `
-      Você é o FloraGenesis, botânico.
-      Analise a imagem. Contexto do usuário: ${locationContext}.
-      
-      Retorne APENAS um JSON válido (sem markdown):
-      {
-        "plant_identity": { "scientific_name": "String", "common_name": "String" },
-        "diagnosis": { "health_status": "String", "primary_issue": "String", "description": "String" },
-        "treatment_protocol": { "required": Boolean, "title": "String", "duration_days": Integer },
-        "context_analysis": "Comentário sobre o contexto (Vaso/Solo)."
-      }
-    `;
+    const prompt = `Analise esta planta. Contexto: ${locationContext}. Retorne JSON { "plant_identity": {...}, "diagnosis": {...}, "treatment_protocol": {...} }`;
 
     const result = await model.generateContent([prompt, imagePart]);
     const response = await result.response;
     const text = response.text();
 
-    console.log("🤖 Resposta:", text);
-
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
-    const jsonResult = JSON.parse(cleanText);
-
-    res.json(jsonResult);
+    res.json(JSON.parse(cleanText));
 
   } catch (error) {
     console.error("Erro CRÍTICO:", error);
-    res.status(500).json({ 
-      error: 'Erro na IA', 
-      details: error.message,
-      tip: "Verifique os logs do Render para ver se a chave carregou corretamente."
-    });
+    res.status(500).json({ error: 'Erro na IA', details: error.message });
   }
 });
 
-// --- ROTA DE SALVAR ---
-app.post('/plants/save', upload.single('image'), async (req, res) => {
-  try {
-    const userId = 'user_teste_v1'; 
-    const aiData = JSON.parse(req.body.ai_diagnosis || '{}');
-    const gardenId = req.body.gardenId;
-    const file = req.file;
-
-    if (!file) return res.status(400).json({ error: 'Sem foto.' });
-
-    const photoName = `${userId}/${Date.now()}_planta.jpg`;
-    const { error: uploadError } = await supabase.storage
-      .from('plant-photos')
-      .upload(photoName, file.buffer, { contentType: file.mimetype, upsert: true });
-
-    if (uploadError) throw uploadError;
-
-    const publicUrl = supabase.storage.from('plant-photos').getPublicUrl(photoName).data.publicUrl;
-
-    const { data, error: dbError } = await supabase
-      .from('plants')
-      .insert([{
-        garden_id: gardenId, 
-        user_id: userId,
-        nickname: aiData.plant_identity?.common_name || 'Minha Planta',
-        scientific_name: aiData.plant_identity?.scientific_name,
-        health_status: aiData.diagnosis?.health_status,
-        image_url: publicUrl,
-        botanical_specs: aiData
-      }])
-      .select();
-
-    if (dbError) throw dbError;
-    res.status(201).json({ message: 'Planta salva!', plant: data[0] });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
+// --- INICIALIZAÇÃO ---
 app.listen(port, () => {
   console.log(`Servidor rodando na porta ${port}`);
+  // Roda o detetive assim que o servidor liga
+  listAvailableModels();
 });
