@@ -18,7 +18,7 @@ app.use(express.json());
 // --- CONEXÕES ---
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 
-// Limpeza da chave (Mantenha isso, é importante!)
+// Limpeza da chave
 const rawApiKey = process.env.GEMINI_API_KEY || "";
 const cleanApiKey = rawApiKey.trim();
 const genAI = new GoogleGenerativeAI(cleanApiKey);
@@ -36,7 +36,7 @@ function fileToGenerativePart(buffer, mimeType) {
 // ROTAS
 // ==================================================================
 
-app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (MODELO 2.5 FLASH)' }));
+app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V MIME FIX)' }));
 
 app.get('/test-db', async (req, res) => {
   const { data, error } = await supabase.from('badge_definitions').select('*');
@@ -52,45 +52,32 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
 
     if (!file) return res.status(400).json({ error: 'Nenhuma imagem enviada.' });
 
-    console.log(`🌱 Analisando com GEMINI 2.5 FLASH... Contexto: ${locationContext}`);
+    // --- CORREÇÃO DO ERRO MIME TYPE ---
+    // O Flutter na Web as vezes manda como 'application/octet-stream'.
+    // O Gemini rejeita isso. Vamos forçar 'image/jpeg' se for genérico.
+    let finalMimeType = file.mimetype;
+    if (finalMimeType === 'application/octet-stream') {
+        console.log("⚠️ MIME Type genérico detectado. Forçando para 'image/jpeg'.");
+        finalMimeType = 'image/jpeg';
+    }
 
-    // --- AQUI ESTÁ A CORREÇÃO FINAL ---
-    // Usando o modelo que apareceu no TOPO da sua lista!
+    console.log(`🌱 Analisando com GEMINI 2.5 FLASH... Contexto: ${locationContext} | Tipo: ${finalMimeType}`);
+
+    // Usando o modelo que sua chave NOVA permitiu
     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
-    const imagePart = fileToGenerativePart(file.buffer, file.mimetype);
+    const imagePart = fileToGenerativePart(file.buffer, finalMimeType);
 
     const prompt = `
-      Você é o FloraGenesis, um botânico especialista e fitopatologista.
-      Analise esta imagem cuidadosamente.
+      Você é o FloraGenesis, botânico especialista.
+      Analise a imagem. Contexto do usuário: ${locationContext}.
       
-      CONTEXTO DO USUÁRIO: ${locationContext}.
-      (Use este contexto para avaliar se o espaço/recipiente é adequado).
-
-      Sua tarefa:
-      1. Identificar a planta (Nome popular e científico).
-      2. Diagnosticar a saúde (Saudável, Doente, Crítico).
-      3. Se houver problema, identificar a causa (Praga, Fungo, Manejo, Vaso Pequeno, etc).
-      4. Criar um protocolo de tratamento resumido.
-
-      Retorne APENAS um JSON válido, sem marcação markdown (sem \`\`\`json), estritamente neste formato:
+      Retorne APENAS um JSON válido (sem markdown):
       {
-        "plant_identity": {
-          "scientific_name": "String",
-          "common_name": "String",
-          "confidence": 0.0-1.0
-        },
-        "diagnosis": {
-          "health_status": "Healthy" ou "Sick" ou "Critical",
-          "primary_issue": "String curta (Ex: Cochonilhas, Vaso Pequeno)",
-          "description": "Explicação de 1 ou 2 frases sobre o diagnóstico visual e o contexto."
-        },
-        "treatment_protocol": {
-          "required": Boolean,
-          "title": "Título do Tratamento",
-          "duration_days": Integer
-        },
-        "context_analysis": "Seu comentário específico sobre o contexto (Vaso/Solo) informado."
+        "plant_identity": { "scientific_name": "String", "common_name": "String" },
+        "diagnosis": { "health_status": "String", "primary_issue": "String", "description": "String" },
+        "treatment_protocol": { "required": Boolean, "title": "String", "duration_days": Integer },
+        "context_analysis": "Comentário sobre o contexto (Vaso/Solo)."
       }
     `;
 
@@ -98,7 +85,7 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
     const response = await result.response;
     const text = response.text();
 
-    console.log("🤖 Resposta Bruta Gemini:", text);
+    console.log("🤖 Resposta:", text);
 
     const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
     const jsonResult = JSON.parse(cleanText);
@@ -106,9 +93,9 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
     res.json(jsonResult);
 
   } catch (error) {
-    console.error("Erro CRÍTICO na Análise:", error);
+    console.error("Erro CRÍTICO:", error);
     res.status(500).json({ 
-      error: 'Erro ao processar inteligência artificial.',
+      error: 'Erro na IA', 
       details: error.message 
     });
   }
@@ -150,11 +137,10 @@ app.post('/plants/save', upload.single('image'), async (req, res) => {
     res.status(201).json({ message: 'Planta salva!', plant: data[0] });
 
   } catch (error) {
-    console.error("Erro ao salvar:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
 app.listen(port, () => {
-  console.log(`Servidor FloraGenesis rodando na porta ${port}`);
+  console.log(`Servidor rodando na porta ${port}`);
 });
