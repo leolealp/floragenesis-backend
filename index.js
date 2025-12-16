@@ -36,7 +36,7 @@ function fileToGenerativePart(buffer, mimeType) {
 // ROTAS
 // ==================================================================
 
-app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V JSON FIX)' }));
+app.get('/', (req, res) => res.json({ status: 'FloraGenesis Brain Online 🧠 (V LOGGING IMPLEMENTADO)' }));
 
 app.get('/test-db', async (req, res) => {
   const { data, error } = await supabase.from('badge_definitions').select('*');
@@ -87,7 +87,7 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
     res.json(jsonResult);
 
   } catch (error) {
-    console.error("Erro CRÍTICO na Análise:", error);
+    console.error("[ANALYZE ERROR] Erro CRÍTICO na Análise:", error);
     res.status(500).json({ 
       error: 'Erro ao processar inteligência artificial.',
       details: error.message 
@@ -95,38 +95,55 @@ app.post('/plants/analyze', upload.single('image'), async (req, res) => {
   }
 });
 
-// --- ROTA DE SALVAR (COM CHECAGEM DE ERRO DETALHADA) ---
+// --- ROTA DE SALVAR (AGORA COM LOGS DETALHADOS) ---
 app.post('/plants/save', upload.single('image'), async (req, res) => {
+  const transactionId = `TXN-${Date.now()}`; // ID único para rastreamento
   let aiData;
+  console.log(`[SAVE START] ${transactionId}: Iniciando transação de salvamento.`);
+
   try {
     const userId = 'user_teste_v1'; 
     const gardenId = req.body.gardenId;
     const file = req.file;
 
-    if (!file) return res.status(400).json({ error: 'Sem foto.' });
-
+    if (!file) {
+      console.log(`[SAVE FAIL] ${transactionId}: Nenhuma imagem enviada.`);
+      return res.status(400).json({ error: 'Sem foto.' });
+    }
+    
     // 1. ANÁLISE DO JSON DA IA
     if (!req.body.ai_diagnosis) {
         throw new Error("Dados de diagnóstico da IA estão ausentes.");
     }
-    // Tenta fazer o parse do JSON
+    
     try {
         aiData = JSON.parse(req.body.ai_diagnosis);
+        console.log(`[SAVE STEP 1] ${transactionId}: JSON da IA lido com sucesso.`);
     } catch (e) {
         throw new Error("Dados de diagnóstico da IA não são um JSON válido.");
     }
     
     // 2. UPLOAD DA FOTO
     const photoName = `${userId}/${Date.now()}_planta.jpg`;
+    console.log(`[SAVE STEP 2] ${transactionId}: Tentando upload para ${photoName}...`);
+    
     const { error: uploadError } = await supabase.storage
       .from('plant-photos')
       .upload(photoName, file.buffer, { contentType: file.mimetype, upsert: true });
 
-    if (uploadError) throw new Error(`Erro no Upload: ${uploadError.message}`);
+    if (uploadError) {
+        console.error(`[SAVE FAIL] ${transactionId} [STORAGE ERROR]: ${uploadError.message}`);
+        throw new Error(`Erro no Upload: ${uploadError.message}`);
+    }
+    console.log(`[SAVE STEP 2 OK] ${transactionId}: Upload da imagem concluído.`);
 
     const publicUrl = supabase.storage.from('plant-photos').getPublicUrl(photoName).data.publicUrl;
+    console.log(`[SAVE INFO] ${transactionId}: URL Pública gerada: ${publicUrl}`);
+
 
     // 3. INSERÇÃO NO BANCO DE DADOS
+    console.log(`[SAVE STEP 3] ${transactionId}: Tentando inserção no Supabase...`);
+
     const { data, error: dbError } = await supabase
       .from('plants')
       .insert([{
@@ -136,21 +153,26 @@ app.post('/plants/save', upload.single('image'), async (req, res) => {
         scientific_name: aiData.plant_identity?.scientific_name,
         health_status: aiData.diagnosis?.health_status,
         image_url: publicUrl,
-        botanical_specs: aiData // Grava o JSON completo
+        botanical_specs: aiData
       }])
       .select();
 
-    if (dbError) throw new Error(`Erro no Banco de Dados: ${dbError.message}`);
+    if (dbError) {
+        console.error(`[SAVE FAIL] ${transactionId} [DB ERROR]: ${dbError.message}`);
+        throw new Error(`Erro no Banco de Dados: ${dbError.message}`);
+    }
     
+    console.log(`[SAVE SUCCESS] ${transactionId}: Transação concluída. ID do registro: ${data[0].id}`);
     res.status(201).json({ message: 'Planta salva!', plant: data[0] });
 
   } catch (error) {
-    // Retorna o erro exato do Supabase ou do JSON para o cliente Flutter
-    console.error("Erro ao salvar:", error.message);
+    // Retorna o erro exato para o cliente Flutter e mantém o log no Render
+    console.error(`[SAVE END FAIL] ${transactionId}: Falha final no processo de salvamento.`, error.message);
     res.status(500).json({ 
       error: 'Falha ao salvar a planta', 
       details: error.message,
-      json_data_received: aiData // Isso é útil para debug
+      transaction_id: transactionId,
+      step_failed: error.message.includes("Upload") ? "Upload de Imagem" : (error.message.includes("Banco") ? "Inserção no Banco" : "Parse JSON")
     });
   }
 });
