@@ -153,3 +153,22 @@ app.post('/plants/save', upload.single('image'), async (req, res) => {
         nickname: aiData.plant_identity?.common_name || 'Minha Planta',
         scientific_name: aiData.plant_identity?.scientific_name,
         health_status: aiData.diagnosis?.health_status,
+        image_url: publicUrl,
+        botanical_specs: aiData
+      }])
+      .select();
+
+    if (dbError) throw dbError;
+
+    res.status(201).json({ message: 'Planta salva!', plant: data[0] });
+
+  } catch (error) {
+    console.error("Erro ao salvar:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Iniciar Servidor
+app.listen(port, () => {
+  console.log(`Servidor FloraGenesis rodando na porta ${port}`);
+});
